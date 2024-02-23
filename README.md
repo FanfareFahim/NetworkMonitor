@@ -3,7 +3,7 @@
 
 
 > 1. 1st run the script. `./netmon1` (It will ask for root permission)
-> 2. Stop the script. Open generated CSV file.
+> 2. Stop the script. Open generated txt file.
 > 3. Put desired mac address. Find mac address using following commands.
 
 Unix/Mac
