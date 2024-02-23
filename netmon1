@@ -1,0 +1,85 @@
+#!/bin/bash
+
+CSV_FILE="mac_addresses_$(date +\%d\%m\%Y).csv"
+# CSV_FILE="mac_addresses.csv"
+MAC_FILE="macAddress.txt"
+api_url="https://127.0.0.1:8000/process_data"  # Update the URL with the correct endpoint
+
+while true; do
+	
+	# Check if the MAC file exists
+	if [ ! -f "$MAC_FILE" ]; then
+		touch "$MAC_FILE"
+		echo "Insert Mac address here. Remove this line. Do not leave blank line"
+		exit 1
+	fi
+
+    # Create CSV file if not found
+    if [ ! -f "$CSV_FILE" ]; then
+        touch "$CSV_FILE"
+        echo "MAC,Connected,Disconnected,TempConnected" >> "$CSV_FILE"
+		
+		# Loop through each line in the MAC file and append to CSV file
+		while IFS= read -r macs; do
+			# Append the MAC address to the CSV file
+			echo "$macs",,, >> "$CSV_FILE"
+		done < "$MAC_FILE"
+		sleep 5
+    fi
+
+    # Get MAC addresses using nmap
+    mac_addresses=$(sudo nmap -sn 192.168.68.1/24 | grep -o -E '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})')
+	# Iterate through each MAC address
+	while IFS= read -r mac_address; do
+		# Check if MAC address is present in the CSV file
+		current_time=$(date +'%Y-%m-%d %H:%M:%S')
+		if grep -q "$mac_address" "$CSV_FILE"; then
+
+			# Check if Connected column is empty
+			connected_status=$(grep "$mac_address" "$CSV_FILE" | cut -d ',' -f2)
+			if [ -z "$connected_status" ]; then
+				# Write current time in H:MM:SS format in Connected column
+				sed -i "s/$mac_address,/$mac_address,$current_time/" "$CSV_FILE"
+				# echo "Updated Connected time for $mac_address to $current_time"
+
+				# Make a POST request with variables
+				curl -X POST -H "Content-Type: application/json" -d '{"mac_address":"'$mac_address'", "date_time":"'"$current_time"'"}' "$api_url"
+			fi
+		fi
+
+	done <<< "$mac_addresses"
+	
+    # Read CSV file and update TempConnected column
+	first_row=true
+    while IFS=, read -r mac connected disconnected temp_connected; do
+		if [ "$first_row" = true ]; then
+			# Skip the first row (headings)
+			first_row=false
+			continue
+		fi
+        if ! [[ $mac_addresses =~ $mac ]]; then
+            # Update TempDisconnected column with current timestamp
+			sed -i "s/^\($mac,[^,]*,[^,]*,\)[^,]*/\1$current_time/" "$CSV_FILE"
+			# echo "Updated TempDisconnected time for $mac to $current_time"
+			
+			# Make a POST request with variables
+			curl -X POST -H "Content-Type: application/json" -d '{"macAcdress":"'$mac'", "date_time":"'"$current_time"'"}' "$api_url"
+		else
+            # Check if TempDisconnected time is more than 5 seconds ago
+            temp_disconnected_seconds=$(date -d "$temp_connected" +%s)
+            current_seconds=$(date -d "$current_time" +%s)
+            time_difference=$((current_seconds - temp_disconnected_seconds))
+
+            if [ $time_difference -gt 5 ]; then
+                # Update TempConnected column with current timestamp
+				sed -i "s/^\($mac,[^,]*,\)[^,]*/\1$current_time/" "$CSV_FILE"
+				
+				# Make a POST request with variables
+				curl -X POST -H "Content-Type: application/json" -d '{"mac_address":"'$mac'", "date_time":"'"$current_time"'"}' "$api_url"
+            fi
+        fi
+    done < "$CSV_FILE"
+	
+    # Wait for 5 seconds before the next scan
+    sleep 5
+done
