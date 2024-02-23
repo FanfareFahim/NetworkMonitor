@@ -3,7 +3,7 @@
 CSV_FILE="mac_addresses_$(date +\%d\%m\%Y).csv"
 # CSV_FILE="mac_addresses.csv"
 MAC_FILE="macAddress.txt"
-api_url="https://127.0.0.1:8000/process_data"  # Update the URL with the correct endpoint
+api_url="https://hrapp.talentpro.global/api/attendance-from-mac/"  # Update the URL with the correct endpoint
 
 while true; do
 	
