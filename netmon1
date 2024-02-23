@@ -9,8 +9,9 @@ while true; do
 	
 	# Check if the MAC file exists
 	if [ ! -f "$MAC_FILE" ]; then
-		touch "$MAC_FILE"
-		echo "Insert Mac address here. Remove this line. Do not leave blank line"
+		# touch "$MAC_FILE"
+		echo "Insert Mac address on the file named $MAC_FILE"
+		echo "Insert Mac address here. Remove this line. Do not leave blank line" > $MAC_FILE
 		exit 1
 	fi
 
